@@ -11,139 +11,54 @@ import base64
 from BaseHTTPServer import HTTPServer
 
 HOST = "http://rancher.local:8080/v1"
-URL_SERVICE = "/services/"
-URL_ENVIRONMENT = "/projects/"
 USERNAME = "userid"
 PASSWORD = "password"
 kwargs = {}
+images = {}
 
-# HTTP
+class ImageRecord:
+    def __init__ (self):
+        self.type = None
+        self.registry = None
+        self.path = None
+
+def add_image(target_type,server,image_name):
+  print "Registering " + server + ", " + image_name + "... for type = " + target_type
+  if server not in images:
+    images[server] = {}
+  
+  if image_name not in images[server]:
+    images[server][image_name] = target_type
+ 
 def get(url):
    r = requests.get(url, auth=(USERNAME, PASSWORD), **kwargs)
    r.raise_for_status()
    return r
 
-def post(url, data=""):
-   if data:
-      r = requests.post(url, data=json.dumps(data), auth=(USERNAME, PASSWORD), **kwargs)
-   else:
-      r = requests.post(url, data="", auth=(USERNAME, PASSWORD), **kwargs)
-   r.raise_for_status()
-   return r.json()
-
-def delete(url, data=""):
-   if data:
-      r = requests.delete(url, data=json.dumps(data), auth=(USERNAME, PASSWORD), **kwargs)
-   else:
-      r = requests.delete(url, data="", auth=(USERNAME, PASSWORD), **kwargs)
-   r.raise_for_status()
-   return r.json()
-
-# Websocket
-def ws(url):
-  webS = websocket.create_connection(url)
-  resp = base64.b64decode( webS.recv() )
-  webS.close()
-  return resp
-
-# Helper
 def print_json(data):
    print json.dumps(data, sort_keys=True, indent=3, separators=(',', ': '))
 
+@baker.command(default=True, params={"target_type": "rancher, kubernetes (optional)"})
+def query(target_type=""):
+  if target_type == "rancher":
+    rancher_query()
+  else:
+    print "Incorrect or empty target provided. Exiting."
 
 #
-# Query the service configuration.
+# Query for images
 #
-@baker.command(default=True, params={"service_id": "The ID of the service to read (optional)"})
-def query(service_id=""):
-   """Retrieves the service information.
+@baker.command()
+def rancher_query():
+   i = get(HOST + "/images").json()
+   for x in i['data']:
+     row = x['data']['dockerImage'] 
+     add_image("rancher",row['server'],row['fullName'])
 
-   If you don't specify an ID, data for all services
-   will be retrieved.
-   """
-
-   r = get(HOST + URL_SERVICE + service_id)
-   print_json(r.json())
-
-#
-# Converts a service name into an ID
-#
-@baker.command(params={
-                        "name": "The name of the service to lookup.",
-                        "newest": "From list of IDs, return newest (optional)"})
-def id_of (name="", newest=False):
-   """Retrieves the ID of a service, given its name.
-   """
-   if newest:
-    index = -1
-   else:
-    index = 0
-
-   service = get(HOST + "/services?name=" + name).json()
-   return service['data'][index]['id']
-
-#
-# Converts a environment name into an ID
-#
-@baker.command(params={"name": "The name of the environment to lookup."})
-def id_of_env (name=""):
-   """Retrieves the ID of a project, given its name.
-   """
-
-   environment = get(HOST + "/project?name=" + name).json()
-   return environment['data'][0]['id']
-
-#
-# Start containers within a service (e.g. for Start Once containers).
-#
-@baker.command(params={"service_id": "The ID of the service to start the containers of."})
-def start_containers (service_id):
-   """Starts the containers of a given service, typically a Start Once service.
-   """
-   start_service (service_id)
-
-#
-# Start containers within a service (e.g. for Start Once containers).
-#
-@baker.command(params={"service_id": "The ID of the service to start the containers of."})
-def start_service (service_id):
-   """Starts the containers of a given service, typically a Start Once service.
-   """
-
-   # Get the array of containers
-   containers = get(HOST + URL_SERVICE + service_id + "/instances").json()['data']
-   for container in containers:
-      start_url = container['actions']['start']
-      print "Starting container %s with url %s" % (container['name'], start_url)
-      post(start_url, "")
-
-
-#
-# Stop containers within a service.
-#
-@baker.command(params={"service_id": "The ID of the service to stop the containers of."})
-def stop_service (service_id):
-   """Stop the containers of a given service.
-   """
-
-   # Get the array of containers
-   containers = get(HOST + URL_SERVICE + service_id + "/instances").json()['data']
-   for container in containers:
-      stop_url = container['actions']['stop']
-      print "Stopping container %s with url %s" % (container['name'], stop_url)
-      post(stop_url, "")
-
-#
-# Get a service state
-#
-@baker.command(default=True, params={"service_id": "The ID of the service to read"})
-def state(service_id=""):
-   """Retrieves the service state information.
-   """
-
-   r = get(HOST + URL_SERVICE + service_id)
-   print(r.json()["state"])
-
+   for k,v in images.iteritems():
+     print "Server: " + k
+     for kk,vv in v.iteritems():
+       print "Image: " + kk
 
 #
 # Script's entry point, starts Baker to execute the commands.
@@ -152,8 +67,6 @@ def state(service_id=""):
 if __name__ == '__main__':
    import os
 
-   # support for new Rancher agent services
-   # http://docs.rancher.com/rancher/latest/en/rancher-services/service-accounts/
    if 'CATTLE_ACCESS_KEY' in os.environ:
       USERNAME = os.environ['CATTLE_ACCESS_KEY']
 

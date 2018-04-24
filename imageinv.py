@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 
 import baker
 import json
@@ -9,6 +9,10 @@ import websocket
 import base64
 
 from BaseHTTPServer import HTTPServer
+
+#
+## Thanks to https://github.com/etlweather/gaucho for introducing me to baker.
+#
 
 HOST = "http://rancher.local:8080/v1"
 USERNAME = "userid"
@@ -43,7 +47,7 @@ def get(url):
 def print_json(data):
    print json.dumps(data, sort_keys=True, indent=3, separators=(',', ': '))
 
-@baker.command(default=True, params={"target_type": "rancher, kubernetes (optional)"})
+@baker.command(default=True, params={"target_type": "rancher, kubectl (optional)"})
 def query(target_type=""):
   if target_type == "rancher":
     rancher_query()
@@ -72,21 +76,17 @@ def print_images():
      for image_name,image_record in v.iteritems():
        print "  Image: " + image_name + " (" + image_record.type + ")"
 
-#
-# Script's entry point, starts Baker to execute the commands.
-# Attempts to read environment variables to configure the program.
-#
 if __name__ == '__main__':
    import os
 
-   if 'CATTLE_ACCESS_KEY' in os.environ:
-      USERNAME = os.environ['CATTLE_ACCESS_KEY']
+   if 'KUBECTL_ACCESS_KEY' in os.environ:
+      USERNAME = os.environ['KUBECTL_ACCESS_KEY']
 
-   if 'CATTLE_SECRET_KEY' in os.environ:
-      PASSWORD = os.environ['CATTLE_SECRET_KEY']
+   if 'KUBECTL_SECRET_KEY' in os.environ:
+      PASSWORD = os.environ['KUBECTL_SECRET_KEY']
 
-   if 'CATTLE_URL' in os.environ:
-      HOST = os.environ['CATTLE_URL']
+   if 'KUBECTL_URL' in os.environ:
+      HOST = os.environ['KUBECTL_URL']
 
    if 'RANCHER_ACCESS_KEY' in os.environ:
       USERNAME = os.environ['RANCHER_ACCESS_KEY']
@@ -102,9 +102,9 @@ if __name__ == '__main__':
         kwargs['verify'] = False
       else:
         kwargs['verify'] = os.environ['SSL_VERIFY']
-
+        
    # make sure host ends with v1 if it is not contained in host
-   if '/v1' not in HOST:
+   if '/v1' not in HOST and target_type == "rancher":
       HOST = HOST + '/v1'
 
    baker.run()

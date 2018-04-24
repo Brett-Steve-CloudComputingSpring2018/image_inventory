@@ -23,13 +23,18 @@ class ImageRecord:
         self.path = None
 
 def add_image(target_type,server,image_name):
-  print "Registering " + server + ", " + image_name + "... for type = " + target_type
+
+  image_record = ImageRecord()
+  image_record.type = target_type
+  image_record.server = server
+  image_record.name = image_name
+
   if server not in images:
+    #then it must be new, add it with an empty value
     images[server] = {}
-  
-  if image_name not in images[server]:
-    images[server][image_name] = target_type
- 
+
+  images[server][image_name] = image_record
+
 def get(url):
    r = requests.get(url, auth=(USERNAME, PASSWORD), **kwargs)
    r.raise_for_status()
@@ -55,10 +60,17 @@ def rancher_query():
      row = x['data']['dockerImage'] 
      add_image("rancher",row['server'],row['fullName'])
 
+   print_images()
+
+def print_servers():
    for k,v in images.iteritems():
      print "Server: " + k
-     for kk,vv in v.iteritems():
-       print "Image: " + kk
+
+def print_images():
+   for k,v in images.iteritems():
+     print "Server: " + k
+     for image_name,image_record in v.iteritems():
+       print "  Image: " + image_name + " (" + image_record.type + ")"
 
 #
 # Script's entry point, starts Baker to execute the commands.

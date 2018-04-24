@@ -7,6 +7,7 @@ import sys
 import time
 import websocket
 import base64
+import anchore_check
 
 from BaseHTTPServer import HTTPServer
 
@@ -50,15 +51,14 @@ def print_json(data):
 @baker.command(default=True, params={"target_type": "rancher, kubectl (optional)"})
 def query(target_type=""):
   if target_type == "rancher":
+    print "Rancher has been selected."
     rancher_query()
   else:
     print "Incorrect or empty target provided. Exiting."
 
-#
-# Query for images
-#
 @baker.command()
 def rancher_query():
+   print "Rancher query is running..."
    i = get(HOST + "/images").json()
    for x in i['data']:
      row = x['data']['dockerImage'] 
@@ -103,8 +103,4 @@ if __name__ == '__main__':
       else:
         kwargs['verify'] = os.environ['SSL_VERIFY']
         
-   # make sure host ends with v1 if it is not contained in host
-   if '/v1' not in HOST and target_type == "rancher":
-      HOST = HOST + '/v1'
-
    baker.run()

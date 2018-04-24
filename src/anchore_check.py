@@ -23,5 +23,3 @@ def anchore_check(image_name, server=""):
   print type(json_out)
   for row in json_out['vulnerabilities']:
     print row['vuln'] + ", " + row['severity']
-
-anchore_check("debian:latest")

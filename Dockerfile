@@ -10,8 +10,8 @@ RUN pip install anchorecli
 COPY requirements.txt /app
 RUN pip install -r /app/requirements.txt
     
-COPY imageinv.py /app
-RUN chmod +x /app/imageinv.py
+COPY src /app
+RUN chmod +x /app/*.py
 
 ENV PYTHONPATH=/usr/local/lib/python2.7/site-packages/ 
 

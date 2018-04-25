@@ -7,7 +7,7 @@ import sys
 import time
 import websocket
 import base64
-import anchore_check
+from anchore_check import *
 
 from BaseHTTPServer import HTTPServer
 
@@ -56,6 +56,9 @@ def query(target_type=""):
   else:
     print "Incorrect or empty target provided. Exiting."
 
+  print_images()
+  check_images()
+    
 @baker.command()
 def rancher_query():
    print "Rancher query is running..."
@@ -63,8 +66,6 @@ def rancher_query():
    for x in i['data']:
      row = x['data']['dockerImage'] 
      add_image("rancher",row['server'],row['fullName'])
-
-   print_images()
 
 def print_servers():
    for k,v in images.iteritems():
@@ -76,6 +77,11 @@ def print_images():
      for image_name,image_record in v.iteritems():
        print "  Image: " + image_name + " (" + image_record.type + ")"
 
+def check_images():
+   for k,v in images.iteritems():
+     for image_name,image_record in v.iteritems():
+       anchore_check(image_name,k)
+              
 if __name__ == '__main__':
    import os
 

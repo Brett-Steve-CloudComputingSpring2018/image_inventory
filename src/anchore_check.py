@@ -3,6 +3,7 @@
 import baker
 import json
 import subprocess
+import time
 
 results = {}
 def anchore_check(image_name, server=""):
@@ -18,6 +19,9 @@ def anchore_check(image_name, server=""):
   #pick out the digest
   digest = json_out[0]['imageDigest']
 
+  #give it time to work... cheesy but effective
+  time.sleep(15)
+  
   response = subprocess.check_output("anchore-cli --json image vuln " + digest + " os", shell=True)
   json_out = json.loads(response)
   print type(json_out)

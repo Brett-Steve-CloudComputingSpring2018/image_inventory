@@ -14,15 +14,23 @@ def anchore_check(image_name, server=""):
     full_image_name = image_name
   print "Checking " + full_image_name
 
-  response = subprocess.check_output("anchore-cli --json image add " + full_image_name, shell=True)
+  try:
+    response = subprocess.check_output("anchore-cli --json image add " + full_image_name, shell=True)
+  except subprocess.CalledProcessError, e:
+    print "add output:\n", e.output
+    return
   json_out = json.loads(response)
   #pick out the digest
   digest = json_out[0]['imageDigest']
 
   #give it time to work... cheesy but effective
   time.sleep(15)
-  
-  response = subprocess.check_output("anchore-cli --json image vuln " + digest + " os", shell=True)
+
+  try:
+    response = subprocess.check_output("anchore-cli --json image vuln " + digest + " os", shell=True)
+  except subprocess.CalledProcessError, e:
+    print "vuln output:\n", e.output
+    return
   json_out = json.loads(response)
   print type(json_out)
   for row in json_out['vulnerabilities']:

@@ -1,5 +1,4 @@
 prom/node-exporter
-microsoft/dotnet
 datadog/docker-dd-agent
 gitlab/gitlab-ce
 gliderlabs/registrator

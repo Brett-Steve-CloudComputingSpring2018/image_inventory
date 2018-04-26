@@ -5,7 +5,7 @@ WORKDIR /app
 RUN apt-get update && \
     apt-get -y upgrade && \
     apt-get install -y vim
-RUN pip install anchorecli
+RUN pip install anchorecli Psycopg2 
     
 COPY requirements.txt /app
 RUN pip install -r /app/requirements.txt

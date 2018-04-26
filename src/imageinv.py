@@ -7,6 +7,7 @@ import sys
 import time
 import websocket
 import base64
+import mysql.connector
 from anchore_check import *
 
 from BaseHTTPServer import HTTPServer
@@ -18,6 +19,10 @@ from BaseHTTPServer import HTTPServer
 HOST = "http://rancher.local:8080/v1"
 USERNAME = "userid"
 PASSWORD = "password"
+postgres_endpoint = "default.endpoint"
+postgres_username = "default"
+postgres_password = "bogus"
+postgres_database = "default"
 kwargs = {}
 images = {}
 
@@ -48,24 +53,49 @@ def get(url):
 def print_json(data):
    print json.dumps(data, sort_keys=True, indent=3, separators=(',', ': '))
 
-@baker.command(default=True, params={"target_type": "rancher, kubectl (optional)"})
-def query(target_type=""):
+@baker.command(default=True, params={"target_type": "rancher, kubectl, flatfile (optional)", "filepath":""})
+def query(target_type, filepath=None):
   if target_type == "rancher":
     print "Rancher has been selected."
     rancher_query()
+  elif target_type == "flatfile":
+    if filepath:
+      flatfile_query(filepath)
+    else:
+      raise ValueError("filepath must be true is target_type is flatfile.")    
   else:
     print "Incorrect or empty target provided. Exiting."
 
   print_images()
   check_images()
     
-@baker.command()
+@baker.command
 def rancher_query():
    print "Rancher query is running..."
    i = get(HOST + "/images").json()
    for x in i['data']:
      row = x['data']['dockerImage'] 
      add_image("rancher",row['server'],row['fullName'])
+
+#baker.command
+def flatfile_query(filepath):
+  print "Working " + filepath
+  f = open(filepath,"r")
+  print "Opening database"
+  try:
+    conn = mysql.connector.connect( host=postgres_endpoint, user=postgres_username, password=postgres_password, db=postgres_database , connection_timeout=5)
+    conn.autocommit = True
+    cursor = postgres_connection.cursor()
+    line = f.readline()
+    while line:
+
+      cursor.execute("INSERT INTO images_import (name,status) VALUES (%s,%s)", (line.strip(),"NEW"))
+      line = f.readline()
+
+    conn.close()
+  except:
+    print "Unexpected error.", sys.exc_info()
+  f.close()
 
 def print_servers():
    for k,v in images.iteritems():
@@ -102,6 +132,18 @@ if __name__ == '__main__':
 
    if 'RANCHER_URL' in os.environ:
       HOST = os.environ['RANCHER_URL']
+
+   if 'POSTGRES_USERNAME' in os.environ:
+      postgres_username = os.environ['POSTGRES_USERNAME']
+
+   if 'POSTGRES_PASSWORD' in os.environ:
+      postgres_password = os.environ['POSTGRES_PASSWORD']
+
+   if 'POSTGRES_ENDPOINT' in os.environ:
+      postgres_endpoint = os.environ['POSTGRES_ENDPOINT']
+
+   if 'POSTGRES_DATABASE' in os.environ:
+      postgres_database = os.environ['POSTGRES_DATABASE']
 
    if 'SSL_VERIFY' in os.environ:
       if os.environ['SSL_VERIFY'].lower() == "false":

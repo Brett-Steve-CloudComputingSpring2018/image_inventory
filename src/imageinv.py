@@ -7,7 +7,7 @@ import sys
 import time
 import websocket
 import base64
-import mysql.connector
+import psycopg2
 from anchore_check import *
 
 from BaseHTTPServer import HTTPServer
@@ -19,13 +19,17 @@ from BaseHTTPServer import HTTPServer
 HOST = "http://rancher.local:8080/v1"
 USERNAME = "userid"
 PASSWORD = "password"
-postgres_endpoint = "default.endpoint"
-postgres_username = "default"
-postgres_password = "bogus"
-postgres_database = "default"
 kwargs = {}
 images = {}
-
+   
+class ConnectRecord:
+    def __init__ (self):
+        self.endpoint = "default.endpoint"
+        self.username = "default"
+        self.password = "bogus"
+        self.database = "default"
+connect_record = ConnectRecord()
+        
 class ImageRecord:
     def __init__ (self):
         self.type = None
@@ -77,25 +81,30 @@ def rancher_query():
      row = x['data']['dockerImage'] 
      add_image("rancher",row['server'],row['fullName'])
 
-#baker.command
+@baker.command
 def flatfile_query(filepath):
   print "Working " + filepath
   f = open(filepath,"r")
-  print "Opening database"
-  try:
-    conn = mysql.connector.connect( host=postgres_endpoint, user=postgres_username, password=postgres_password, db=postgres_database , connection_timeout=5)
-    conn.autocommit = True
-    cursor = postgres_connection.cursor()
+  line = f.readline()
+  while line:
+    insert_new_image(line.strip(),"NEW","flatfile")
     line = f.readline()
-    while line:
+  f.close()
 
-      cursor.execute("INSERT INTO images_import (name,status) VALUES (%s,%s)", (line.strip(),"NEW"))
-      line = f.readline()
-
+def insert_new_image(image_name,status,import_source,repository=""):
+  print "Inserting " + image_name
+  try:
+    conn = psycopg2.connect( host=connect_record.endpoint, user=connect_record.username, password=connect_record.password, dbname=connect_record.database, connect_timeout=4 )
+    conn.autocommit = True
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO images_import (name,status,repository,import_source) VALUES (%s,%s,%s,%s)", (image_name,"NEW",repository,import_source))
+    
+    #call the anchore 'add' (includes database call)    
+    anchore_add(conn,image_name,import_source,repository)
+    
     conn.close()
   except:
     print "Unexpected error.", sys.exc_info()
-  f.close()
 
 def print_servers():
    for k,v in images.iteritems():
@@ -114,7 +123,7 @@ def check_images():
               
 if __name__ == '__main__':
    import os
-
+   
    if 'KUBECTL_ACCESS_KEY' in os.environ:
       USERNAME = os.environ['KUBECTL_ACCESS_KEY']
 
@@ -134,16 +143,16 @@ if __name__ == '__main__':
       HOST = os.environ['RANCHER_URL']
 
    if 'POSTGRES_USERNAME' in os.environ:
-      postgres_username = os.environ['POSTGRES_USERNAME']
+      connect_record.username = os.environ['POSTGRES_USERNAME']
 
    if 'POSTGRES_PASSWORD' in os.environ:
-      postgres_password = os.environ['POSTGRES_PASSWORD']
+      connect_record.password = os.environ['POSTGRES_PASSWORD']
 
    if 'POSTGRES_ENDPOINT' in os.environ:
-      postgres_endpoint = os.environ['POSTGRES_ENDPOINT']
+      connect_record.endpoint = os.environ['POSTGRES_ENDPOINT']
 
    if 'POSTGRES_DATABASE' in os.environ:
-      postgres_database = os.environ['POSTGRES_DATABASE']
+      connect_record.database = os.environ['POSTGRES_DATABASE']
 
    if 'SSL_VERIFY' in os.environ:
       if os.environ['SSL_VERIFY'].lower() == "false":

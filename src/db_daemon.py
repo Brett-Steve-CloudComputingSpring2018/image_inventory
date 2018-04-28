@@ -4,7 +4,7 @@ import daemon
 import time
 import anchore_check
 import psycopg2
-from datetime import datetime # for getting timestamps when anchore is finished
+from datetime import datetime
 
 
 # NOTE - postgres stuff is hardcoded in temporarily
@@ -13,6 +13,7 @@ POSTGRES_USERNAME = 'csciuser'
 POSTGRES_PASSWORD = 'csci5799'
 POSTGRES_HOST = 'csci5799-postgres.crzz7sianr5s.us-west-2.rds.amazonaws.com'
 POSTGRES_PORT = '5432'
+
 
 """
 Connects to the postgres database and return the connection() instance
@@ -27,39 +28,59 @@ def postgres_cursor(connection):
     newCursor = connection.cursor()
     return newCursor
 
-def querey_db():
+def query_db():
     
     conn = conn_to_postgres()
-    curs = postgres_cursor(conn)
+    conn.autocommit = True
+    img_curs = postgres_cursor(conn)
+    vuln_curs = postgres_cursor(conn)
     
+    img_curs.execute("SELECT * FROM images_import")
     
     # iterate over the rows of the database
-    dbRow = curs.fetchone()
-    while dbRow:
+    img_row = img_curs.fetchone()
+    while img_row:
         
-        name = dbRow[0]
-        status = dbRow[1]
-        repo = dbRow[2]
-        imp_src = dbRow[3]
-        
-        if status == 'NEW':
-            # add to anchore
-            # QUESTION is the source="" in the anchore_add definition the same as the repository
-            anchore_add(conn, name, imp_src, repository)
+        img_name = img_row[0]
+        img_status = img_row[1]
+        img_repo = img_row[2]
+        imp_src = img_row[3]
+        img_digest = img_row[4]
             
-            # TODO add timestamp to the database entry for start time
             
-        elif status == 'PENDING':
-            # querey anchore to see if it's done yet
-            # NOTE - need the sha256 digest
-            anchore_check(conn, digest)
+        # make sure the current image has been passed to anchore already
+        if img_status == 'PENDING':
             
-            # TODO - if anchore is finished, add entry for finish time to database
-        
-        print dbRow # NOTE debug print
-        
-        # fetch the next row of the database
-        dbRow = curs.fetchone()
+            # XXX - just a debug print
+            print "Pending Record Found: " + img_digest
+            
+            # returns a json object
+            anchore_data = anchore_check.anchore_check(conn, img_digest)
+                        
+            # if the function returns something other than 'none' we can insert
+            # the vulterability info into the vulnerabilities database
+            if anchore_data:
+
+                # get a list of the vulnerabilities from the json object
+                vuln_list = anchore_data['vulnerabilities']
+                
+                # extract each vulnerability for the current digest
+                for vuln in vuln_list:
+                    
+                    cve = vuln["vuln"]
+                    # fix = vuln["fix"]
+                    package = vuln["package"]
+                    severity = vuln["severity"]
+
+                    vuln_curs.execute("INSERT INTO vulnerabilities (sha256_digest,cve,package,severity) VALUES (%s,%s,%s,%s)", (img_digest, cve, package, severity))
+            
+            
+                # TODO add timestamp to the database entry for start time
+                # TODO - if anchore is finished, update images_import db to show
+                # the status as complete
+
+        # fetch the next image row
+        img_row = img_curs.fetchone()
         
         
         
@@ -70,14 +91,12 @@ being scanned.
 '''
 def run():
     
-    with daemon.DaemonContext():
-        time.sleep(15) # sleep for 15 seconds between each iteration over the database
+    # uncomment next line to run as daemon...
+    # with daemon.DaemonContext():
+    query_db()
+    time.sleep(5) # sleep for 5 seconds between each iteration over the database
                         # NOTE - I need to think about the behavior of this a little more...
-        query_db()
-        # run anchore check here
 
-
-# NOTE - I'm not sure if the way I have the daemon set up is super hacky
 
 
 if __name__ == "__main__":

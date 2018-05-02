@@ -48,46 +48,56 @@ def query_db():
     t_stamp_curs = postgres_cursor(conn)
     vuln_curs = postgres_cursor(conn)
     
-    img_curs.execute("SELECT * FROM images_import")
     
-    # iterate over each row of the table that img_curs points to
-    for img_row in img_curs:
+    # FIXME - I should probably break this giant block of code up but I don't
+    # feel like it right now.
+    
+    while True:
         
-        img_name = img_row[0]
-        img_status = img_row[1]
-        img_repo = img_row[2]
-        imp_src = img_row[3]
-        img_digest = img_row[4]
-            
-        # make sure the current image has been passed to anchore already
-        if img_status == 'PENDING':
-            
-            # XXX - just a debug print statement
-            #print "Pending Record Found: " + img_digest
-            
-            # returns a json object and store in anchore_data
-            anchore_data = anchore_check.anchore_check(conn, img_digest)
-                    
-            # if the function returns something other than 'none' we can insert
-            # the vulterability info into the vulnerabilities database
-            if anchore_data:
-                
-                # update the finished timestamp and show the status as complete in images_import database
-                t_stamp_curs.execute("UPDATE images_import SET status=%s, timestamp_done = now() WHERE name=%s", ('COMPLETE', img_name))
-
-                # get a list of the vulnerabilities from the json object
-                vuln_list = anchore_data['vulnerabilities']
-                
-                # extract each vulnerability for the current digest
-                for vuln in vuln_list:
-                    
-                    cve = vuln["vuln"]
-                    # fix = vuln["fix"]
-                    package = vuln["package"]
-                    severity = vuln["severity"]
-
-                    vuln_curs.execute("INSERT INTO vulnerabilities (sha256_digest,cve,package,severity) VALUES (%s,%s,%s,%s)", (img_digest, cve, package, severity))
+        img_curs.execute("SELECT * FROM images_import")
         
+        # iterate over each row of the table that img_curs points to
+        for img_row in img_curs:
+            
+            img_name = img_row[0]
+            img_status = img_row[1]
+            img_repo = img_row[2]
+            imp_src = img_row[3]
+            img_digest = img_row[4]
+                
+            # make sure the current image has been passed to anchore already
+            if img_status == 'PENDING':
+                
+                # XXX - just a debug print statement
+                #print "Pending Record Found: " + img_digest
+                
+                # returns a json object and store in anchore_data
+                anchore_data = anchore_check.anchore_check(conn, img_digest)
+                        
+                # if the function returns something other than 'none' we can insert
+                # the vulterability info into the vulnerabilities database
+                if anchore_data:
+                    
+                    # update the finished timestamp and show the status as complete in images_import database
+                    t_stamp_curs.execute("UPDATE images_import SET status=%s, timestamp_done = now() WHERE name=%s", ('COMPLETE', img_name))
+
+                    # get a list of the vulnerabilities from the json object
+                    vuln_list = anchore_data['vulnerabilities']
+                    
+                    # extract each vulnerability for the current digest
+                    for vuln in vuln_list:
+                        
+                        cve = vuln["vuln"]
+                        # fix = vuln["fix"]
+                        package = vuln["package"]
+                        severity = vuln["severity"]
+
+                        vuln_curs.execute("INSERT INTO vulnerabilities (sha256_digest,cve,package,severity) VALUES (%s,%s,%s,%s)", (img_digest, cve, package, severity))
+    
+        time.sleep(1) # sleep for 1 second between each iteration over the database
+                        # NOTE - I need to think about the behavior of this a little more...
+                        # It could just run continuously without bothering to sleep I guess...
+            
         
 '''
 Want to run the anchore_check as a background daemon since it should be
@@ -99,9 +109,6 @@ def run():
     # comment out/uncomment next line to run as daemon or not
     with daemon.DaemonContext():
         query_db()
-        time.sleep(1) # sleep for 1 second between each iteration over the database
-                        # NOTE - I need to think about the behavior of this a little more...
-                        # It could just run continuously without bothering to sleep I guess...
 
 if __name__ == "__main__":
     

@@ -8,6 +8,8 @@ import time
 import websocket
 import base64
 import psycopg2
+import psycopg2.extras
+from psycopg2 import IntegrityError
 from anchore_check import *
 
 from BaseHTTPServer import HTTPServer
@@ -98,11 +100,46 @@ def insert_new_image(image_name,status,import_source,repository=""):
     conn.autocommit = True
     cursor = conn.cursor()
     cursor.execute("INSERT INTO images_import (name,status,repository,import_source) VALUES (%s,%s,%s,%s)", (image_name,"NEW",repository,import_source))
-    
-    #call the anchore 'add' (includes database call)    
+
+    #call the anchore 'add' (includes database call which adds the sha256_digest)
     anchore_add(conn,image_name,import_source,repository)
-    
+   
     conn.close()
+  except IntegrityError as err:
+    print err
+    conn.close()
+  except:
+    print "Unexpected error.", sys.exc_info()
+
+@baker.command
+def reset_db(anchore=False,clair=False):
+  print "Resetting database and optionally anchore"
+  try:
+    conn = psycopg2.connect( host=connect_record.endpoint, user=connect_record.username, password=connect_record.password, dbname=connect_record.database, connect_timeout=4 )
+    conn.autocommit = True
+    select_cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    delete_cursor = conn.cursor()
+    select_cursor.execute("SELECT * FROM images_import")
+    delete_cursor.execute("DELETE FROM images_import WHERE sha256_digest is null")
+
+    row = select_cursor.fetchone()
+    while row:
+      digest = row["sha256_digest"]
+
+      print row["name"] + ", " + digest
+      try:
+        delete_cursor.execute("DELETE FROM images_import WHERE sha256_digest=%s", (digest,) )
+      except:
+        print "Unexpected error.", sys.exc_info()
+
+      if anchore:
+        #call the anchore 'delete' 
+        anchore_delete(digest)
+
+      row = select_cursor.fetchone()
+
+    conn.close()
+    return
   except:
     print "Unexpected error.", sys.exc_info()
 

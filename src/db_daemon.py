@@ -69,7 +69,7 @@ def query_db():
             if img_status == 'PENDING':
                 
                 # XXX - just a debug print statement
-                #print "Pending Record Found: " + img_digest
+                print "Pending Record Found: " + img_digest
                 
                 # returns a json object and store in anchore_data
                 anchore_data = anchore_check.anchore_check(conn, img_digest)
@@ -92,8 +92,10 @@ def query_db():
                         package = vuln["package"]
                         severity = vuln["severity"]
 
-                        vuln_curs.execute("INSERT INTO vulnerabilities (sha256_digest,cve,package,severity) VALUES (%s,%s,%s,%s)", (img_digest, cve, package, severity))
-    
+                        try: 
+                          vuln_curs.execute("INSERT INTO vulnerabilities (sha256_digest,cve,package,severity) VALUES (%s,%s,%s,%s)", (img_digest, cve, package, severity))
+                        except psycopg2.IntegrityError as e:
+                          print e 
         time.sleep(1) # sleep for 1 second between each iteration over the database
                         # NOTE - I need to think about the behavior of this a little more...
                         # It could just run continuously without bothering to sleep I guess...
@@ -107,7 +109,7 @@ being scanned.
 def run():
     
     # comment out/uncomment next line to run as daemon or not
-    with daemon.DaemonContext():
+    #with daemon.DaemonContext():
         query_db()
 
 if __name__ == "__main__":

@@ -37,6 +37,24 @@ def anchore_add(conn,image_name,import_source,server=""):
   except:
     print "Unexpected error.", sys.exc_info()
 
+#This will require the sha256 digest to look up
+def anchore_check(conn,digest):
+  try:
+    response = subprocess.check_output("anchore-cli --json image vuln " + digest + " os", shell=True)
+  except subprocess.CalledProcessError, e:
+    print "vuln output:\n", e.output
+    return
+  json_out = json.loads(response)
+  return json_out
+  
+#  for row in json_out['vulnerabilities']:
+#    cursor = conn.cursor()
+#    try:
+#      cursor.execute("INSERT INTO vulnerabilities (sha256_digest,cve,package,severity) VALUES (%s,%s,%s,%s)", (digest,row['vuln'],row['package'],row['severity']))
+#    except:
+#      print "Unexpected error.", sys.exc_info()
+#      return
+
 @baker.command()
 def anchore_delete_all():
   anchore_disable_subscription_all()

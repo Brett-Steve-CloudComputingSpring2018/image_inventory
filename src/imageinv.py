@@ -89,7 +89,7 @@ def flatfile_query(filepath):
   f = open(filepath,"r")
   line = f.readline()
   while line:
-    insert_new_image(line.strip(),"NEW","flatfile")
+    insert_new_image(line.strip(),"NEW","flatfile",filepath)
     line = f.readline()
   f.close()
 

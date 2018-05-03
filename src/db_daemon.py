@@ -78,12 +78,10 @@ def query_db():
                 # the vulterability info into the vulnerabilities database
                 if anchore_data:
                     
-                    # update the finished timestamp and show the status as complete in images_import database
-                    t_stamp_curs.execute("UPDATE images_import SET status=%s, timestamp_done = now() WHERE name=%s", ('COMPLETE', img_name))
-
                     # get a list of the vulnerabilities from the json object
                     vuln_list = anchore_data['vulnerabilities']
-                    
+                   
+                    vuln_count = 0 
                     # extract each vulnerability for the current digest
                     for vuln in vuln_list:
                         
@@ -94,8 +92,17 @@ def query_db():
 
                         try: 
                           vuln_curs.execute("INSERT INTO vulnerabilities (sha256_digest,cve,package,severity) VALUES (%s,%s,%s,%s)", (img_digest, cve, package, severity))
+                          vuln_count = vuln_count + 1 
                         except psycopg2.IntegrityError as e:
+                          vuln_count = vuln_count + 1 
                           print e 
+
+                    # update the finished timestamp and show the status as complete in images_import database
+                    # sometime the vulnerabilities come back as broken or unanalyzed... shouldn't take credit for that as COMPLETE?
+                    if vuln_count > 0:
+                      print "Found " + str(vuln_count) + " vulnerabilities. Marking as complete."
+                      t_stamp_curs.execute("UPDATE images_import SET status=%s, timestamp_done = now() WHERE name=%s", ('COMPLETE', img_name))
+
         time.sleep(1) # sleep for 1 second between each iteration over the database
                         # NOTE - I need to think about the behavior of this a little more...
                         # It could just run continuously without bothering to sleep I guess...

@@ -41,19 +41,15 @@ def anchore_add(conn,image_name,import_source,server=""):
 def anchore_check(conn,digest):
   try:
     response = subprocess.check_output("anchore-cli --json image vuln " + digest + " os", shell=True)
+    json_out = json.loads(response)
+    return json_out
   except subprocess.CalledProcessError, e:
     print "vuln output:\n", e.output
-    return
-  json_out = json.loads(response)
-  return json_out
-  
-#  for row in json_out['vulnerabilities']:
-#    cursor = conn.cursor()
-#    try:
-#      cursor.execute("INSERT INTO vulnerabilities (sha256_digest,cve,package,severity) VALUES (%s,%s,%s,%s)", (digest,row['vuln'],row['package'],row['severity']))
-#    except:
-#      print "Unexpected error.", sys.exc_info()
-#      return
+    try:
+      output_failed_cursor = conn.cursor()
+      output_failed_cursor.execute("UPDATE images_import SET status=%s, timestamp_done = now(), notes = %s WHERE sha256_digest=%s", ('FAILED', e.output, digest))
+    except:
+      print "Unexpected error.", sys.exc_info()
 
 @baker.command()
 def anchore_delete_all():

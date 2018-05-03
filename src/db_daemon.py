@@ -77,7 +77,7 @@ def query_db():
                 # if the function returns something other than 'none' we can insert
                 # the vulterability info into the vulnerabilities database
                 if anchore_data:
-                    
+                   
                     # get a list of the vulnerabilities from the json object
                     vuln_list = anchore_data['vulnerabilities']
                    

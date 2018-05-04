@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import time 
+import time
 import baker
 import json
 import requests
@@ -69,7 +69,7 @@ def query(target_type, filepath=None):
     if filepath:
       flatfile_query(filepath)
     else:
-      raise ValueError("filepath must be true is target_type is flatfile.")    
+      raise ValueError("filepath must be true is target_type is flatfile.")
   else:
     print "Incorrect or empty target provided. Exiting."
 
@@ -81,7 +81,7 @@ def rancher_query():
    print "Rancher query is running..."
    i = get(HOST + "/images").json()
    for x in i['data']:
-     row = x['data']['dockerImage'] 
+     row = x['data']['dockerImage']
      add_image("rancher",row['server'],row['fullName'])
 
 @baker.command
@@ -136,7 +136,7 @@ def reset_db(anchore=False,clair=False):
         print "Unexpected error.", sys.exc_info()
 
       if anchore:
-        #call the anchore 'delete' 
+        #call the anchore 'delete'
         anchore_delete(digest)
 
       row = select_cursor.fetchone()

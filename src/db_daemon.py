@@ -49,9 +49,6 @@ def query_db():
     vuln_curs = postgres_cursor(conn)
     
     
-    # FIXME - I should probably break this giant block of code up but I don't
-    # feel like it right now.
-    
     while True:
         
         img_curs.execute("SELECT * FROM images_import")
@@ -69,7 +66,7 @@ def query_db():
             if img_status == 'PENDING':
                 
                 # XXX - just a debug print statement
-                print "Pending Record Found: " + img_digest
+                #print "Pending Record Found: " + img_digest
                 
                 # returns a json object and store in anchore_data
                 anchore_data = anchore_check.anchore_check(conn, img_digest)
@@ -81,7 +78,7 @@ def query_db():
                     # get a list of the vulnerabilities from the json object
                     vuln_list = anchore_data['vulnerabilities']
                    
-                    vuln_count = 0 
+                    vuln_count = 0
                     # extract each vulnerability for the current digest
                     for vuln in vuln_list:
                         
@@ -90,21 +87,19 @@ def query_db():
                         package = vuln["package"]
                         severity = vuln["severity"]
 
-                        try: 
+                        try:
                           vuln_curs.execute("INSERT INTO vulnerabilities (sha256_digest,cve,package,severity) VALUES (%s,%s,%s,%s)", (img_digest, cve, package, severity))
-                          vuln_count = vuln_count + 1 
+                          vuln_count = vuln_count + 1
                         except psycopg2.IntegrityError as e:
-                          vuln_count = vuln_count + 1 
-                          print e 
+                          vuln_count = vuln_count + 1
+                          print e
 
                     # update the finished timestamp and show the status as complete in images_import database
                     # sometime the vulnerabilities come back as broken or unanalyzed... shouldn't take credit for that as COMPLETE?
                     print "Found " + str(vuln_count) + " vulnerabilities. Marking as complete."
                     t_stamp_curs.execute("UPDATE images_import SET status=%s, timestamp_done = now() WHERE name=%s", ('COMPLETE', img_name))
 
-        time.sleep(1) # sleep for 1 second between each iteration over the database
-                        # NOTE - I need to think about the behavior of this a little more...
-                        # It could just run continuously without bothering to sleep I guess...
+        time.sleep(10) # sleep for 10 seconds between each iteration over the database
             
         
 '''

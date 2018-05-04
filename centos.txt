@@ -1,0 +1,5 @@
+centos:7
+centos:6.9
+centos:6.8
+centos:6.7
+centos:6.6

@@ -99,9 +99,8 @@ def query_db():
 
                     # update the finished timestamp and show the status as complete in images_import database
                     # sometime the vulnerabilities come back as broken or unanalyzed... shouldn't take credit for that as COMPLETE?
-                    if vuln_count > 0:
-                      print "Found " + str(vuln_count) + " vulnerabilities. Marking as complete."
-                      t_stamp_curs.execute("UPDATE images_import SET status=%s, timestamp_done = now() WHERE name=%s", ('COMPLETE', img_name))
+                    print "Found " + str(vuln_count) + " vulnerabilities. Marking as complete."
+                    t_stamp_curs.execute("UPDATE images_import SET status=%s, timestamp_done = now() WHERE name=%s", ('COMPLETE', img_name))
 
         time.sleep(1) # sleep for 1 second between each iteration over the database
                         # NOTE - I need to think about the behavior of this a little more...

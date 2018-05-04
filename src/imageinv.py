@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import time 
 import baker
 import json
 import requests
@@ -89,8 +90,10 @@ def flatfile_query(filepath):
   f = open(filepath,"r")
   line = f.readline()
   while line:
-    insert_new_image(line.strip(),"NEW","flatfile",filepath)
+    insert_new_image(line.strip(),"NEW","flatfile")
     line = f.readline()
+    #forces the first add time to be unique and ordered
+    time.sleep(2)
   f.close()
 
 def insert_new_image(image_name,status,import_source,repository=""):

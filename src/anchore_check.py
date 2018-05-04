@@ -45,11 +45,6 @@ def anchore_check(conn,digest):
     return json_out
   except subprocess.CalledProcessError, e:
     print "vuln output:\n", e.output
-    try:
-      output_failed_cursor = conn.cursor()
-      output_failed_cursor.execute("UPDATE images_import SET status=%s, timestamp_done = now(), notes = %s WHERE sha256_digest=%s", ('FAILED', e.output, digest))
-    except:
-      print "Unexpected error.", sys.exc_info()
 
 @baker.command()
 def anchore_delete_all():
